@@ -2,6 +2,14 @@
 
 Architecture decision log. Record choices we have actually made, with rationale and open alternatives. Do not treat undecided items as settled.
 
+## Conventions
+
+- **Append-only.** Decisions are historical context. Do not silently rewrite or delete past ADRs.
+- **Supersession.** Later ADRs may supersede earlier ones; mark status clearly (e.g. Superseded by ADR-NNN) rather than editing out the old choice.
+- **Unresolved stays unresolved.** Open questions remain visibly open until a phase needs them and an ADR adopts a choice.
+- **Recommendations ≠ decisions.** A suggestion in chat or docs is not settled until recorded here as Accepted (or equivalent).
+- **Include reasoning.** Capture why, alternatives considered, and risks—not only the final choice.
+
 Format: `ADR-NNN` — status — date
 
 ---
