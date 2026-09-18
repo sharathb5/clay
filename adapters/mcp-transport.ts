@@ -32,6 +32,8 @@ export async function createMcpTransport(): Promise<McpTransportSession> {
   const stdio = new StdioClientTransport({
     command: process.execPath,
     args: [tsxCli, serverPath],
+    // Avoid piping unread stderr into a full buffer (stdio child can deadlock).
+    stderr: "inherit",
   });
 
   await client.connect(stdio);
