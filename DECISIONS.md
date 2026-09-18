@@ -270,6 +270,52 @@ Broader redaction of arbitrary tool *payload* secrets remains open (see Open que
 
 ---
 
+## ADR-020 — First agent experiment lives outside the interceptor core
+
+**Status:** Accepted (2026-09-18)
+
+**Decision:** Put the first tool-using agent + Clay replay experiment under `experiments/agent-replay/`. The interceptor, trace format, and adapters stay unchanged. Agent code calls Clay only through `interceptor.call`.
+
+**Why:** Proves replay usefulness for comparing agent policies without turning the foundation into an eval platform or coupling the core to a model provider.
+
+**Alternatives considered:** Agent runner inside `src/` — rejected; blurs the interception boundary with provider/policy code.
+
+---
+
+## ADR-021 — Single LLM provider: OpenRouter via local `.env`
+
+**Status:** Accepted (2026-09-18)
+
+**Decision:** Use OpenRouter’s OpenAI-compatible Chat Completions API (fetch, no SDK) as the sole model provider for this experiment. Read `OPENROUTER_API_KEY` from a gitignored repo-root `.env` (or the process environment). Do not commit keys or put them in traces/artifacts.
+
+**Why:** One provider keeps the boundary small. OpenRouter was the key the operator could supply. `.env` avoids exporting secrets into the shell history while remaining local-only.
+
+**Alternatives considered:** Direct OpenAI — deferred when the operator preferred OpenRouter. Multi-provider abstraction — banned for this phase.
+
+---
+
+## ADR-022 — Agent metadata stays outside the tool-trace schema
+
+**Status:** Accepted (2026-09-18)
+
+**Decision:** Keep core JSONL trace entries as `{ toolName, arguments, response }`. Write agent version, final classification, observed tool sequence, and comparison text to separate gitignored artifacts under `.experiment-artifacts/`.
+
+**Why:** No evidence yet that the core schema must expand. Mixing model outputs into the tool trace would blur environment freeze vs agent behavior.
+
+---
+
+## ADR-023 — First agent replay experiment: Outcome A with model nondeterminism
+
+**Status:** Accepted (2026-09-18)
+
+**Decision:** Record the first agent-level Clay experiment as complete: V1 live-record of `notion.so` ICP classification through `find-and-enrich-company` → `get-task-context`, then V1 and V2 strict replay against the same fail-closed trace. Clay credit booleans were unchanged; both replays had zero live Clay calls. V2 matched the tool sequence (Outcome A). V1 live vs V1 replay classifications differed (`weak_fit` vs `medium_fit`), so tool-environment freeze is proven while agent text/decisions remain nondeterministic.
+
+**Why:** Answers whether replay is useful for comparing policies against a fixed Clay environment without building an eval platform. Honest reporting of nondeterminism is part of the claim.
+
+**Next-replay lesson:** Strict sequential replay is enough when policies share a tool strategy. Hybrid/fork remains open for divergent tool strategies (still unresolved; see Open questions). Temperature/seed controls were not added — out of scope for proving environment freeze.
+
+---
+
 # Open questions
 
 Do not implement answers until a phase needs them. When settled, promote to an ADR.

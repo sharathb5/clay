@@ -9,7 +9,9 @@ Freeze the external tool environment from a live run, then replay the same tool 
 - **agent behavior changes**
 - **environment / tool-result changes**
 
-**Clay MCP is the first real backend. It is not the core.** The core stays transport-generic unless implementation evidence justifies coupling it to Clay. Phase 1 used an in-process fake tool; Phase 2 proved the same interceptor against a local MCP stdio server; Phase 3 proved it against authenticated remote Clay MCP.
+**Phase 3** proved it against authenticated remote Clay MCP.
+
+**First agent replay experiment** proved two agent policies can run against one frozen Clay tool trace so behavioral differences are attributable to the agent (with model nondeterminism explicitly acknowledged).
 
 ## Record / replay model
 
@@ -67,7 +69,10 @@ Agent / caller
   fixtures/          # local MCP server for tests
   scripts/           # local helpers (e.g. Clay tools/list)
   tests/             # vertical slice + invariant proofs
+  experiments/       # optional agent-level experiments (not the core)
   .clay-auth/        # gitignored local OAuth store (never commit)
+  .experiment-artifacts/  # gitignored local experiment traces/outputs
+  .env               # gitignored local secrets (e.g. OPENROUTER_API_KEY)
 ```
 
 Keep flat until structure hurts. Do not add packages, services, or infra early.
@@ -90,6 +95,7 @@ Keep flat until structure hurts. Do not add packages, services, or infra early.
 - Clay-specific logic in the interceptor core
 - Building UI, dashboards, graders, or prod infra in this foundation phase
 - Committing `.clay-auth/`, tokens, or authorization codes
+- Committing `.env`, LLM API keys, or raw workspace experiment traces
 - Inventing or bypassing OAuth for Clay verification
 
 ## Verification discipline
@@ -192,6 +198,20 @@ Proven against **real authenticated Clay MCP** (remote Streamable HTTP):
 8. Replay mismatch still fails explicitly
 
 **Invariant proof requirement:** deliberately wire strict replay to call the closed/fail-closed transport → unchanged Clay verifier fails mechanically; revert and confirm green. Broken state must not remain committed.
+
+### First agent replay experiment (complete)
+
+Proven with a real OpenRouter-backed agent against Clay:
+
+1. V1 live record: `find-and-enrich-company` → `get-task-context` for `notion.so` ICP classification
+2. Credits checked outside the agent trace before/after
+3. Terminate Clay session + remove replay auth access
+4. V1 strict replay on fail-closed transport (zero live Clay)
+5. V2 stricter policy against the same frozen trace (zero live Clay)
+6. Outcome A observed: same tool sequence; classifications comparable with environment fixed
+7. Model nondeterminism documented (V1 live vs V1 replay need not match)
+
+Do not treat this experiment as an eval platform. Do not add hybrid/fork replay solely to make divergent tool strategies succeed.
 
 ## How coding agents should work
 

@@ -12,6 +12,15 @@ To answer:
 
 ## Current status
 
+**First agent replay experiment complete** (`npm run experiment:agent-replay`):
+
+- Minimal OpenRouter-backed agent under `experiments/agent-replay/`
+- V1 live record against Clay (`notion.so` developer-infrastructure ICP)
+- V1 + V2 strict replay on the same frozen trace (fail-closed; zero live Clay)
+- Outcome A: same tool sequence; policy comparison with environment held fixed
+- Model nondeterminism observed (V1 live vs V1 replay classifications can differ)
+- Real traces/outputs stay in gitignored `.experiment-artifacts/`
+
 **Phase 3 complete:**
 
 - Authenticated Clay MCP over remote Streamable HTTP (`https://api.clay.com/v3/mcp`)
@@ -39,6 +48,9 @@ npm run verify -- --tee /tmp/verify.log
 # Authenticated Clay MCP (requires prior OAuth into .clay-auth/)
 npm run verify:clay
 
+# First agent replay experiment (needs .clay-auth + OPENROUTER_API_KEY in .env)
+npm run experiment:agent-replay
+
 # Focused unit tests
 npm test
 ```
@@ -50,3 +62,5 @@ First-time Clay auth / tool discovery:
 ```bash
 npm run clay:list-tools
 ```
+
+LLM key for the agent experiment: paste `OPENROUTER_API_KEY=` into the gitignored repo-root `.env`.
