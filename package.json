@@ -7,6 +7,7 @@
     "verify": "bash scripts/run-verify.sh verify.ts",
     "verify:clay": "bash scripts/run-verify.sh verify-clay.ts",
     "clay:list-tools": "tsx scripts/clay-list-tools.ts",
+    "experiment:agent-replay": "tsx experiments/agent-replay/experiment.ts",
     "test": "tsx --test tests/*.test.ts"
   },
   "devDependencies": {
