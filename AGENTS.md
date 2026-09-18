@@ -9,7 +9,7 @@ Freeze the external tool environment from a live run, then replay the same tool 
 - **agent behavior changes**
 - **environment / tool-result changes**
 
-**Clay MCP is the first real backend. It is not the core.** The core stays transport-generic unless implementation evidence justifies coupling it to Clay. The first vertical slice uses a local fake tool (not Clay).
+**Clay MCP is the first real backend. It is not the core.** The core stays transport-generic unless implementation evidence justifies coupling it to Clay. Phase 1 used an in-process fake tool; Phase 2 proved the same interceptor against a local MCP stdio server (still not Clay).
 
 ## Record / replay model
 
@@ -36,11 +36,11 @@ Mode is **explicit and sticky** for an execution (fixed on the interceptor insta
 | Term | Meaning |
 |------|---------|
 | **Interceptor** | Sole boundary for replayable tool execution |
-| **Transport** | Live backend that executes tool calls (fake tool first; Clay later) |
+| **Transport** | Live backend that executes tool calls (local MCP first; Clay later) |
 | **Trace** | Immutable record of tool requests and responses from one record session |
 | **Mismatch** | Replay call that cannot be matched to the trace — visible failure, not repaired |
 
-## Intended architecture (slice 1)
+## Intended architecture (through Phase 2)
 
 ```
 Agent / caller
@@ -50,7 +50,7 @@ Agent / caller
 ```
 
 - One interception API for tool calls.
-- Transports are adapters behind that API.
+- Transports are adapters behind that API (MCP stdio adapter today).
 - Trace IO is separate from transport.
 - No UI, eval dashboard, graders, or Clay business workflows.
 
@@ -62,8 +62,8 @@ Agent / caller
   DECISIONS.md       # architecture decision log
   README.md          # short human overview
   src/               # interceptor, modes, trace read/write
-  adapters/          # live transports (fake first; Clay later)
-  fixtures/          # local fake tool for tests
+  adapters/          # live transports (MCP stdio; Clay later)
+  fixtures/          # local MCP server for tests
   tests/             # vertical slice + invariant proofs
 ```
 
@@ -151,6 +151,25 @@ Proven with a **fake/local tool** (not Clay):
 7. Prove **zero** live tool calls during replay
 
 **Invariant proof requirement:** a passing test is not enough. Also demonstrate that if replay is deliberately wired to hit the live transport, verification **fails**. That negative demonstration is part of done.
+
+### Phase 2 vertical slice (complete)
+
+Proven at a **real local MCP stdio** boundary (still not Clay):
+
+1. Start local MCP server via the transport adapter
+2. Real MCP tool call through interceptor in **record** mode
+3. Persist request + response
+4. Fully stop the MCP server/process
+5. Prove a direct live call can no longer succeed
+6. Same interaction in **strict replay** (MCP unavailable)
+7. Receive the recorded result with **zero** live MCP execution
+8. Replay succeeds with structurally equivalent reordered object keys
+9. Meaningfully different arguments fail with an explicit replay mismatch
+
+**Invariant proof requirements:**
+- Deliberate break: wire strict replay to live MCP → verifier fails while server is stopped.
+- Deliberate break: restore key-order-sensitive equality → reordered-key replay fails.
+Neither broken state may remain committed.
 
 ## How coding agents should work
 

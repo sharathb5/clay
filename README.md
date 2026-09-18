@@ -12,19 +12,19 @@ To answer:
 
 ## Current status
 
-**Phase 1 complete:**
+**Phase 2 complete:**
 
-- TypeScript / Node
-- Generic transport boundary
-- Record mode
-- Strict replay mode
-- JSONL trace
-- Exact ordered matching
-- Local deterministic fake tool
-- Replay verified with live execution unavailable
-- Deliberate isolation break shown to fail verification
+- Official MCP TypeScript v2 client/server over local **stdio**
+- Existing `Transport` interface unchanged; MCP details stay in the adapter
+- Record mode performs a real MCP `callTool`
+- Strict replay serves only from the JSONL trace after the MCP process is stopped
+- Deterministic structural argument matching (object key order ignored; types and array order matter)
+- Verified: reordered equivalent args replay; meaningfully different args mismatch
+- Deliberate isolation and matching breaks shown to fail verification
 
-**Phase 2** has not been implemented.
+**Phase 1** (in-process fake tool) established the interceptor/trace core; superseded as the live boundary by Phase 2.
+
+**Phase 3 / Clay integration** has not been implemented.
 
 See `AGENTS.md` for invariants and workflow, `DECISIONS.md` for architectural choices.
 
