@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "verify": "tsx tests/verify.ts",
-    "verify:clay": "tsx tests/verify-clay.ts",
+    "verify": "bash scripts/run-verify.sh verify.ts",
+    "verify:clay": "bash scripts/run-verify.sh verify-clay.ts",
     "clay:list-tools": "tsx scripts/clay-list-tools.ts",
     "test": "tsx --test tests/*.test.ts"
   },

@@ -33,12 +33,17 @@ See `AGENTS.md` for invariants and workflow, `DECISIONS.md` for architectural ch
 # Local MCP stdio (no Clay credentials)
 npm run verify
 
+# Same, while capturing output without hiding failures
+npm run verify -- --tee /tmp/verify.log
+
 # Authenticated Clay MCP (requires prior OAuth into .clay-auth/)
 npm run verify:clay
 
 # Focused unit tests
 npm test
 ```
+
+Do not capture verifier output with a bare `| tee` pipeline: without `pipefail`, a failing verifier can still yield exit status 0. Prefer `npm run verify -- --tee <file>`.
 
 First-time Clay auth / tool discovery:
 

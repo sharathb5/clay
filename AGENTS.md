@@ -102,6 +102,7 @@ Keep flat until structure hurts. Do not add packages, services, or infra early.
 - If verification stays green after the protected mechanism is removed, the verification is **invalid** until that is understood and fixed.
 - Prefer testing **externally observable behavior** over implementation details.
 - A green test alone is not sufficient evidence that an invariant is actually being exercised.
+- Verification commands must preserve the real exit status of the verifier. Output piping or logging must never turn a failing verification into a successful process exit. Use `npm run verify` / `npm run verify:clay` (optionally `-- --tee <file>`); do not wrap them in bare `| tee` without `pipefail`.
 
 ## Constraint escalation
 
