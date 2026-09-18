@@ -13,6 +13,7 @@ import type {
   ChatMessage,
   ChatModel,
   ObservedToolCall,
+  TokenUsage,
 } from "./types.ts";
 
 const DEFAULT_MAX_TURNS = 8;
@@ -42,12 +43,15 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
     { role: "user", content: USER_TASK },
   ];
   const toolSequence: ObservedToolCall[] = [];
+  let usage: TokenUsage | undefined;
 
   for (let turn = 0; turn < maxTurns; turn += 1) {
+    // Fresh conversation state is local to this runAgent invocation.
     const modelTurn = await options.model.complete({
       messages,
       tools: AGENT_TOOLS,
     });
+    usage = accumulateUsage(usage, modelTurn.usage);
 
     if (modelTurn.toolCalls.length === 0) {
       throw new Error(
@@ -79,6 +83,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
           final,
           toolSequence,
           model: options.model.model,
+          ...(usage ? { usage } : {}),
         };
       }
 
@@ -103,4 +108,21 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
   throw new Error(
     `Agent ${options.version} exceeded max turns (${maxTurns}) without finish_classification`,
   );
+}
+
+function accumulateUsage(
+  current: TokenUsage | undefined,
+  next: TokenUsage | undefined,
+): TokenUsage | undefined {
+  if (!next) return current;
+  if (!current) return { ...next };
+  const merged: TokenUsage = {
+    prompt_tokens: current.prompt_tokens + next.prompt_tokens,
+    completion_tokens: current.completion_tokens + next.completion_tokens,
+    total_tokens: current.total_tokens + next.total_tokens,
+  };
+  if (current.cost !== undefined || next.cost !== undefined) {
+    merged.cost = (current.cost ?? 0) + (next.cost ?? 0);
+  }
+  return merged;
 }

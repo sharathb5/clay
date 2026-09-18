@@ -21,6 +21,15 @@ export interface ObservedToolCall {
   arguments: unknown;
 }
 
+/** Token usage reported by the provider for one or more completions. */
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  /** Present only when the provider returns an explicit cost field. */
+  cost?: number;
+}
+
 export interface AgentRunResult {
   agentVersion: AgentVersion;
   mode: "record" | "strict_replay";
@@ -28,6 +37,8 @@ export interface AgentRunResult {
   toolSequence: ObservedToolCall[];
   /** Model/provider label used for this run (no secrets). */
   model: string;
+  /** Aggregated provider usage across turns in this run, when available. */
+  usage?: TokenUsage;
 }
 
 export interface ChatToolCall {
@@ -52,6 +63,8 @@ export interface ChatToolDefinition {
 export interface ModelTurn {
   content: string | null;
   toolCalls: ChatToolCall[];
+  /** Provider-reported usage for this completion, when available. */
+  usage?: TokenUsage;
 }
 
 /** Minimal LLM boundary for this experiment (OpenRouter only). */
