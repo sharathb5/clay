@@ -2,9 +2,56 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { TraceEntry } from "./types.ts";
 
-/** Stable deep equality via JSON serialization (slice-1 exact match). */
+/**
+ * Deterministic structural equality (ADR-014).
+ * Object key order does not matter; array order and value types do.
+ */
 export function stableEqual(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (Object.is(a, b)) {
+    return true;
+  }
+
+  if (typeof a !== typeof b) {
+    return false;
+  }
+
+  if (a === null || b === null || typeof a !== "object") {
+    return false;
+  }
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+      return false;
+    }
+    for (let i = 0; i < a.length; i += 1) {
+      if (!stableEqual(a[i], b[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const aKeys = Object.keys(a as Record<string, unknown>).sort();
+  const bKeys = Object.keys(b as Record<string, unknown>).sort();
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  for (let i = 0; i < aKeys.length; i += 1) {
+    if (aKeys[i] !== bKeys[i]) {
+      return false;
+    }
+  }
+  for (const key of aKeys) {
+    if (
+      !stableEqual(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export async function clearTrace(tracePath: string): Promise<void> {
