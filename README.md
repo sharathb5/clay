@@ -12,24 +12,36 @@ To answer:
 
 ## Current status
 
-**Phase 2 complete:**
+**Phase 3 complete:**
 
-- Official MCP TypeScript v2 client/server over local **stdio**
-- Existing `Transport` interface unchanged; MCP details stay in the adapter
-- Record mode performs a real MCP `callTool`
-- Strict replay serves only from the JSONL trace after the MCP process is stopped
-- Deterministic structural argument matching (object key order ignored; types and array order matter)
-- Verified: reordered equivalent args replay; meaningfully different args mismatch
-- Deliberate isolation and matching breaks shown to fail verification
+- Authenticated Clay MCP over remote Streamable HTTP (`https://api.clay.com/v3/mcp`)
+- Public PKCE-only OAuth via Dynamic Client Registration; credentials in gitignored `.clay-auth/`
+- Existing `Transport` interface unchanged; OAuth/session/HTTP stay in the Clay adapter
+- Recorded a real Clay `get-credits-available` call through the interceptor
+- Strict replay succeeds after session close + credential removal (no Clay, no OAuth)
+- Trace contains no auth/session material; deliberate isolation break fails verification
 
-**Phase 1** (in-process fake tool) established the interceptor/trace core; superseded as the live boundary by Phase 2.
+**Phase 2** remains the local MCP stdio regression path (`npm run verify`).
 
-**Phase 3 / Clay integration** has not been implemented.
+**Phase 1** established the interceptor/trace core.
 
 See `AGENTS.md` for invariants and workflow, `DECISIONS.md` for architectural choices.
 
 ## Verification
 
 ```bash
+# Local MCP stdio (no Clay credentials)
 npm run verify
+
+# Authenticated Clay MCP (requires prior OAuth into .clay-auth/)
+npm run verify:clay
+
+# Focused unit tests
+npm test
+```
+
+First-time Clay auth / tool discovery:
+
+```bash
+npm run clay:list-tools
 ```
