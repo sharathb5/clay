@@ -207,13 +207,76 @@ Format: `ADR-NNN` — status — date
 
 ---
 
+## ADR-016 — Phase 3 live boundary is remote Clay MCP over Streamable HTTP
+
+**Status:** Accepted (2026-09-17)
+
+**Decision:** Phase 3 replaces the local stdio MCP backend (ADR-013) as the *Clay proof* boundary with Clay’s hosted MCP endpoint (`https://api.clay.com/v3/mcp`) using the official TypeScript MCP client’s `StreamableHTTPClientTransport`. The Clay adapter still implements the existing generic `Transport` interface. OAuth, HTTP, MCP session headers, and Clay product semantics stay inside the adapter. The Phase 2 local stdio adapter remains as a non-Clay regression path.
+
+**Why:** Answers whether the same interceptor/trace core can record a real authenticated Clay interaction and replay it with Clay entirely removed. Streamable HTTP matches Clay’s remote MCP interface; stdio cannot.
+
+**Alternatives considered:**
+- Reuse only stdio against a Clay-spawned local process — Clay does not offer self-hosted MCP.
+- Hand-rolled HTTP JSON-RPC without the SDK — duplicates session/OAuth handling the SDK already owns.
+- Change the generic `Transport` shape for sessions/auth — rejected until evidence shows `call(toolName, args)` is insufficient.
+
+**Risk:** Remote auth and network flakiness. Mitigation: keep Phase 2 verify green; isolate Clay proof behind a separate verifier that requires local credentials.
+
+---
+
+## ADR-017 — Local CLI uses public PKCE-only OAuth via Dynamic Client Registration
+
+**Status:** Accepted (2026-09-17)
+
+**Decision:** Authenticate the Phase 3 CLI as a **public** OAuth client: Dynamic Client Registration with `token_endpoint_auth_method: "none"`, authorization-code grant, PKCE S256, loopback redirect (`http://127.0.0.1`), and scope `mcp`. No client secret is invented or required. Device-code is not used (Clay DCR does not accept that grant for registered clients). Interactive browser consent is required for the first authorization; do not fake or bypass it.
+
+**Why:** Matches Clay’s documented path for local/native/CLI clients that cannot keep a secret. Loopback redirects are explicitly allowed. One developer, one workspace, one Phase 3 proof.
+
+**Alternatives considered:**
+- Confidential client with `client_secret` — inappropriate for a local CLI that cannot protect a secret.
+- Device authorization grant — advertised by Clay’s AS metadata, but DCR only accepts `authorization_code` / `refresh_token`.
+- Pre-registered / manually provisioned client — unnecessary; DCR is open and rate-limited for once-per-install use.
+
+---
+
+## ADR-018 — Credential persistence and trace isolation for Clay auth
+
+**Status:** Accepted (2026-09-17)
+
+**Decision:** Persist only what is needed across runs in a **gitignored** local store (`.clay-auth/`): DCR client registration metadata, access token (optional but useful), refresh token, and token expiry / required token metadata. PKCE verifier/challenge material stays **ephemeral** for the active authorization attempt (in-memory); do not persist it across process restarts unless a concrete SDK recovery requirement appears. On refresh-token rotation, replace the stored refresh token so the retired token is never reused. OAuth credentials, authorization codes, PKCE material, access/refresh tokens, Clay session identifiers, and auth headers must **never** be written into replay traces, fixtures, docs, or logs.
+
+Broader redaction of arbitrary tool *payload* secrets remains open (see Open questions).
+
+**Why:** Phase 3 is the first credential-bearing boundary. Trace artifacts must remain safe to inspect for replay proofs without leaking auth material. Ephemeral PKCE matches the single-process interactive flow.
+
+**Alternatives considered:**
+- Persist PKCE verifier to disk for crash recovery mid-auth — unnecessary for a short interactive CLI wait.
+- Production keychain / multi-user auth service — banned for this phase.
+- Embed tokens in env-only with no file — workable, but refresh rotation and DCR caching need durable local state for reruns.
+
+---
+
+## ADR-019 — Clay MCP uses legacy initialize negotiation; session stays in the adapter
+
+**Status:** Accepted (2026-09-17)
+
+**Decision:** Connect the Clay MCP client with protocol version negotiation `mode: 'legacy'` (SDK default): plain `initialize` handshake, no modern `server/discover` probe. Clay’s interface requires initialize and subsequent `Mcp-Session-Id` handling; the SDK’s Streamable HTTP transport owns session headers. Inspect negotiated era during development if useful; do **not** record protocol/era/session metadata in replay traces. After record, terminate/close the live session so replay cannot reach Clay.
+
+**Why:** Clay’s documented remote MCP flow is initialize-then-session, not the 2026 modern discover era. Forcing modern negotiation because the client SDK supports it would risk incompatibility without benefit. Protocol metadata in traces would couple replay artifacts to transport details (conflicts with ADR-015).
+
+**Alternatives considered:**
+- `mode: 'auto'` — extra probe round-trip; falls back to legacy, but unnecessary once Clay is known to need initialize/session.
+- Hand-manage `Mcp-Session-Id` outside the SDK — duplicates what Streamable HTTP already does.
+
+---
+
 # Open questions
 
 Do not implement answers until a phase needs them. When settled, promote to an ADR.
 
 ### MCP client/server library
 
-**Settled for Phase 2 by ADR-013** (`@modelcontextprotocol/client` + `@modelcontextprotocol/server` over stdio). Revisit only if Clay integration forces a different transport or SDK surface.
+**Settled for Phase 2 by ADR-013** (stdio). **Settled for Phase 3 Clay by ADR-016** (`StreamableHTTPClientTransport` from the same `@modelcontextprotocol/client` v2 package). Local stdio remains the non-Clay regression adapter.
 
 ### Agent branches absent from the original trace
 
@@ -225,7 +288,7 @@ Do not implement answers until a phase needs them. When settled, promote to an A
 
 ### Secrets / redaction
 
-**Open.** Record mode may capture secrets from tool payloads. Need a policy before sharing traces. Do not block slice 1 local fixtures; do block “commit real Clay traces” without redaction rules.
+**Partially settled by ADR-018** for auth/session material (must never enter traces). **Still open** for redacting secrets that may appear inside tool *payloads* before sharing traces. Do not commit real Clay traces without that broader policy.
 
 ### Trace schema versioning
 
@@ -233,7 +296,7 @@ Do not implement answers until a phase needs them. When settled, promote to an A
 
 ### How Clay-specific the core should be
 
-**Settled in principle by ADR-003** (generic core, Clay adapter). Remaining detail: how much MCP session/auth/lifecycle lives in the Clay adapter vs. a shared MCP transport helper — decide at Clay integration time.
+**Settled by ADR-003 + ADR-016 + ADR-019:** generic core and `Transport` unchanged; all Clay OAuth, HTTP, session, and MCP envelope handling lives in the Clay adapter. Revisit only if implementation evidence shows `call(toolName, args)` is insufficient.
 
 ### Language alternatives
 
