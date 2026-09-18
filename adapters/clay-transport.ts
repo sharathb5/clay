@@ -51,6 +51,17 @@ function normalizeToolResult(result: {
   return result.content ?? null;
 }
 
+function createMcpClient(): Client {
+  return new Client(
+    { name: "clay-record-replay", version: "0.0.1" },
+    {
+      versionNegotiation: { mode: "legacy" },
+      // Clay negotiated 2025-06-18 on live initialize; keep nearby 2025 revisions.
+      supportedProtocolVersions: ["2025-06-18", "2025-03-26"],
+    },
+  );
+}
+
 async function connectClayClient(
   provider: ClayOAuthProvider,
   interactiveAuth: boolean,
@@ -59,33 +70,49 @@ async function connectClayClient(
   httpTransport: StreamableHTTPClientTransport;
 }> {
   const url = new URL(CLAY_MCP_URL);
-  const client = new Client(
-    { name: "clay-record-replay", version: "0.0.1" },
-    { versionNegotiation: { mode: "legacy" } },
-  );
 
-  // Loopback must be listening before any authorize redirect (SDK redirects
-  // inside connect before throwing UnauthorizedError).
-  const loopback = interactiveAuth
-    ? await startLoopbackCallbackServer()
-    : undefined;
+  const tryConnect = async (): Promise<{
+    client: Client;
+    httpTransport: StreamableHTTPClientTransport;
+  }> => {
+    const client = createMcpClient();
+    const httpTransport = new StreamableHTTPClientTransport(url, {
+      authProvider: provider,
+    });
+    await client.connect(httpTransport);
+    return { client, httpTransport };
+  };
 
+  // Prefer a non-interactive connect when tokens already exist.
+  const existing = await provider.tokens();
+  if (existing?.access_token) {
+    try {
+      return await tryConnect();
+    } catch (err) {
+      if (!(err instanceof UnauthorizedError) || !interactiveAuth) {
+        throw err;
+      }
+      // Fall through to interactive re-authorization.
+    }
+  } else if (!interactiveAuth) {
+    throw new Error(
+      "Clay MCP authorization required. Re-run with interactive auth enabled.",
+    );
+  }
+
+  // Interactive path: loopback must listen before the authorize redirect.
+  const loopback = await startLoopbackCallbackServer();
   try {
+    const client = createMcpClient();
     let httpTransport = new StreamableHTTPClientTransport(url, {
       authProvider: provider,
     });
-
     try {
       await client.connect(httpTransport);
       return { client, httpTransport };
     } catch (err) {
       if (!(err instanceof UnauthorizedError)) {
         throw err;
-      }
-      if (!interactiveAuth || !loopback) {
-        throw new Error(
-          "Clay MCP authorization required. Re-run with interactive auth enabled.",
-        );
       }
 
       const params = await loopback.waitForCallback();
@@ -94,15 +121,12 @@ async function connectClayClient(
       }
       await httpTransport.finishAuth(params);
 
-      // Started transport cannot be restarted — reconnect on a fresh instance.
-      httpTransport = new StreamableHTTPClientTransport(url, {
-        authProvider: provider,
-      });
-      await client.connect(httpTransport);
-      return { client, httpTransport };
+      // Fresh client + transport after auth (started transport cannot restart;
+      // a client that failed connect has also proven sticky in practice).
+      return await tryConnect();
     }
   } finally {
-    await loopback?.close().catch(() => undefined);
+    await loopback.close().catch(() => undefined);
   }
 }
 
