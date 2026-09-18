@@ -103,7 +103,7 @@ Format: `ADR-NNN` — status — date
 
 ## ADR-008 — Phase 1 fake tool is in-process, not MCP protocol
 
-**Status:** Accepted (2026-09-16)
+**Status:** Superseded by ADR-013 (2026-09-17)
 
 **Decision:** Slice 1 uses a deterministic in-process fake tool with explicit `start` / `stop`. `stop` makes live calls throw. No MCP SDK and no network for this proof.
 
@@ -127,7 +127,7 @@ Format: `ADR-NNN` — status — date
 
 ## ADR-010 — Matching: exact, ordered (consume next)
 
-**Status:** Accepted (2026-09-16)
+**Status:** Superseded by ADR-014 (2026-09-17)
 
 **Decision:** On strict replay, the next unused trace entry must deep-equal the call’s `toolName` and `arguments` (JSON-stable equality). Match by advancing a cursor in record order. No fuzzy/canonical matching. Mismatch or exhausted trace → explicit error. Mode does not switch.
 
@@ -157,13 +157,63 @@ Format: `ADR-NNN` — status — date
 
 ---
 
+## ADR-013 — Phase 2 live boundary is local MCP over stdio
+
+**Status:** Accepted (2026-09-17)
+
+**Decision:** Phase 2 replaces the in-process fake (ADR-008) with a real local MCP client/server boundary using official TypeScript MCP v2 packages `@modelcontextprotocol/client` and `@modelcontextprotocol/server`, over **stdio**. The MCP transport adapter implements the existing `Transport` interface. Process spawn, JSON-RPC framing, and `callTool` live only in the adapter; the interceptor stays protocol-agnostic. The local server exposes one deterministic tool (`lookup_company`). After record, the verifier fully stops the MCP process so live calls fail mechanically.
+
+**Why:** Answers whether record/replay works at the MCP protocol boundary, not only against an in-process kill switch. Stdio gives real serialization, a separate server process, and unavailable-backend proof without port/network complexity.
+
+**Alternatives considered:**
+- Streamable HTTP — real MCP, but bind/port races and more teardown than needed for this proof.
+- In-process MCP transport — less process lifecycle risk, but does not prove “server unavailable after shutdown.”
+- Legacy monolithic `@modelcontextprotocol/sdk` (v1) — superseded by the split v2 client/server packages.
+
+**Risk:** Child-process cleanup must be reliable or isolation proofs become flaky. Mitigation: adapter owns connect/close; verifier asserts direct live calls fail after stop.
+
+---
+
+## ADR-014 — Matching: structural equality, ordered consume
+
+**Status:** Accepted (2026-09-17)
+
+**Decision:** On strict replay, the next unused trace entry must match `toolName` (string equality) and `arguments` via **deterministic structural equality**. Cursor still advances in record order. Mismatch or exhausted trace → explicit `ReplayMismatchError`. No mode switch, fallback, or repair.
+
+**Structural equality semantics:**
+- Primitives and `null`/`undefined`: same type and `===` value (`5` ≠ `"5"`).
+- Arrays: same length; elements compared in order (order is meaningful).
+- Plain objects: same key set; key **order does not matter**; values compared structurally.
+- No coercion, fuzzy matching, semantic matching, LLM matching, typo tolerance, or unordered-array treatment.
+
+**Why:** Real tool payloads are JSON objects whose key order is not semantically meaningful. Phase 1 `JSON.stringify` equality (ADR-010) was acceptable for the first proof but fails equivalent reordered arguments. Structural equality keeps mismatches explainable and deterministic.
+
+**Alternatives considered:**
+- Keep JSON-stable / key-order-sensitive equality — rejected; fails on equivalent MCP-shaped payloads.
+- Canonicalize then stringify — equivalent outcome, but an explicit recursive comparator documents the rules better.
+- Fuzzy / semantic / LLM matching — banned; would hide drift we want to see.
+
+---
+
+## ADR-015 — MCP adapter returns normalized tool result, not protocol envelope
+
+**Status:** Accepted (2026-09-17)
+
+**Decision:** The MCP transport adapter’s `Transport.call` returns a stable tool-level result for the interceptor/trace: prefer `structuredContent` when the MCP `callTool` result provides it; otherwise a minimal replayable projection of content. The full MCP `CallToolResult` envelope is not stored in the trace. Trace shape remains `{ toolName, arguments, response }` (ADR-009).
+
+**Why:** Keeps the core and traces tool-semantic (ADR-003). Protocol framing stays behind the adapter. Callers and replay compare business-shaped results, not SDK envelope fields.
+
+**Alternatives considered:** Record the full `CallToolResult` — more faithful to the wire, but couples traces to MCP envelope shape and leaks protocol into the core/replay surface.
+
+---
+
 # Open questions
 
 Do not implement answers until a phase needs them. When settled, promote to an ADR.
 
 ### MCP client/server library
 
-**Open.** Deferred past the in-process fake (ADR-008). Choose a maintained MCP SDK when wiring a real MCP transport or Clay.
+**Settled for Phase 2 by ADR-013** (`@modelcontextprotocol/client` + `@modelcontextprotocol/server` over stdio). Revisit only if Clay integration forces a different transport or SDK surface.
 
 ### Agent branches absent from the original trace
 

@@ -115,6 +115,7 @@ Keep flat until structure hurts. Do not add packages, services, or infra early.
 - Never commit deliberate invariant-breaking mutations.
 - Treat git history as durable project context.
 - Commit messages should explain the logical change clearly.
+- Do not create or commit ad hoc Markdown planning or scratch files. Durable project Markdown is limited to `README.md`, `AGENTS.md`, and `DECISIONS.md` unless another Markdown artifact is explicitly justified.
 
 Before beginning a substantial phase, **propose the expected commit boundaries**. Boundaries may change as implementation teaches us more, but commits should follow actual architectural/behavioral units rather than arbitrary time intervals.
 
