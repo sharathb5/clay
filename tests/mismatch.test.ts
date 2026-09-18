@@ -3,8 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { createFakeTransport } from "../adapters/fake-transport.ts";
-import { createFakeToolServer, LOOKUP_COMPANY } from "../fixtures/fake-tool.ts";
+import { createMcpTransport } from "../adapters/mcp-transport.ts";
+import { LOOKUP_COMPANY } from "../fixtures/tools.ts";
 import {
   createInterceptor,
   ReplayMismatchError,
@@ -13,31 +13,30 @@ import {
 test("strict replay mismatches when arguments differ", async () => {
   const workDir = await mkdtemp(join(tmpdir(), "clay-test-"));
   const tracePath = join(workDir, "trace.jsonl");
-  const server = createFakeToolServer();
-  const transport = createFakeTransport(server);
+  const session = await createMcpTransport();
 
   try {
-    server.start();
     const recorder = await createInterceptor({
       mode: "record",
-      transport,
+      transport: session.transport,
       tracePath,
     });
-    await recorder.call(LOOKUP_COMPANY, { name: "Linear" });
-    server.stop();
+    await recorder.call(LOOKUP_COMPANY, { name: "Linear", limit: 5 });
+    await session.close();
 
     const replayer = await createInterceptor({
       mode: "strict_replay",
-      transport,
+      transport: session.transport,
       tracePath,
     });
 
     await assert.rejects(
-      () => replayer.call(LOOKUP_COMPANY, { name: "Notion" }),
+      () => replayer.call(LOOKUP_COMPANY, { name: "Linear", limit: 10 }),
       (err: unknown) => err instanceof ReplayMismatchError,
     );
-    assert.equal(server.liveCallCount(), 1);
+    assert.equal(session.liveCallCount(), 1);
   } finally {
+    await session.close().catch(() => undefined);
     await rm(workDir, { recursive: true, force: true });
   }
 });

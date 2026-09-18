@@ -1,27 +1,38 @@
 /**
- * End-to-end invariant proof for Phase 1.
+ * End-to-end invariant proof for Phase 2 (MCP stdio boundary).
  *
- * 1. Clean trace
- * 2. Record via interceptor → live fake tool
- * 3. Confirm trace persisted
- * 4. Stop fake tool (live calls throw)
- * 5. Strict replay via interceptor
- * 6. Replay output equals recorded output
- * 7. Live implementation was not invoked during replay
- *
- * If strict replay accidentally crosses the live boundary after stop(),
- * this script fails hard ("Live tool unavailable").
+ * 1. Start local MCP server via transport adapter
+ * 2. Record a real MCP tool call through the interceptor
+ * 3. Persist + confirm recorded output
+ * 4. Fully stop the MCP process
+ * 5. Prove a direct live call can no longer succeed
+ * 6. Strict replay returns the recorded result
+ * 7. Confirm zero live MCP calls during replay
+ * 8. Reordered equivalent object keys also replay successfully
+ * 9. Meaningfully different arguments fail with ReplayMismatchError
  */
 
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createFakeTransport } from "../adapters/fake-transport.ts";
-import { createFakeToolServer, LOOKUP_COMPANY } from "../fixtures/fake-tool.ts";
-import { createInterceptor } from "../src/interceptor.ts";
+import { createMcpTransport } from "../adapters/mcp-transport.ts";
+import { LOOKUP_COMPANY } from "../fixtures/tools.ts";
+import {
+  createInterceptor,
+  ReplayMismatchError,
+} from "../src/interceptor.ts";
 import { readTrace, stableEqual, traceExistsAndNonEmpty } from "../src/trace.ts";
 
-const ARGS = { name: "Linear" } as const;
+const ARGS = { name: "Linear", limit: 5 } as const;
+const ARGS_REORDERED = { limit: 5, name: "Linear" } as const;
+const ARGS_MISMATCH = { name: "Linear", limit: 10 } as const;
+
+const EXPECTED_RESPONSE = {
+  name: "Linear",
+  limit: 5,
+  employeeCount: 150,
+  industry: "Software",
+} as const;
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -32,30 +43,24 @@ function assert(condition: unknown, message: string): asserts condition {
 async function main(): Promise<void> {
   const workDir = await mkdtemp(join(tmpdir(), "clay-verify-"));
   const tracePath = join(workDir, "trace.jsonl");
+  const session = await createMcpTransport();
 
   try {
-    const server = createFakeToolServer();
-    const transport = createFakeTransport(server);
-
     // --- Record ---
-    server.start();
-    assert(server.isAvailable(), "fake server should be available for record");
-
     const recorder = await createInterceptor({
       mode: "record",
-      transport,
+      transport: session.transport,
       tracePath,
     });
 
     const recorded = await recorder.call(LOOKUP_COMPANY, ARGS);
-    const liveCallsAfterRecord = server.liveCallCount();
-    assert(liveCallsAfterRecord === 1, `expected 1 live call during record, got ${liveCallsAfterRecord}`);
+    const liveCallsAfterRecord = session.liveCallCount();
     assert(
-      stableEqual(recorded, {
-        name: "Linear",
-        employeeCount: 150,
-        industry: "Software",
-      }),
+      liveCallsAfterRecord === 1,
+      `expected 1 live MCP call during record, got ${liveCallsAfterRecord}`,
+    );
+    assert(
+      stableEqual(recorded, EXPECTED_RESPONSE),
       "recorded response mismatch",
     );
 
@@ -66,38 +71,72 @@ async function main(): Promise<void> {
     assert(stableEqual(entries[0].arguments, ARGS), "trace arguments mismatch");
     assert(stableEqual(entries[0].response, recorded), "trace response mismatch");
 
-    // --- Make live execution impossible ---
-    server.stop();
-    assert(!server.isAvailable(), "fake server should be stopped before replay");
+    // --- Make live MCP execution impossible ---
+    await session.close();
 
-    // Sanity: a direct live call must fail now.
     let liveBlocked = false;
     try {
-      await transport.call(LOOKUP_COMPANY, ARGS);
+      await session.transport.call(LOOKUP_COMPANY, ARGS);
     } catch (err) {
-      liveBlocked = err instanceof Error && err.message.includes("Live tool unavailable");
+      liveBlocked =
+        err instanceof Error && err.message.includes("Live MCP unavailable");
     }
-    assert(liveBlocked, "stopped transport should throw on live call");
+    assert(liveBlocked, "closed MCP transport should throw on live call");
 
     // --- Strict replay ---
-    const liveCallsBeforeReplay = server.liveCallCount();
+    const liveCallsBeforeReplay = session.liveCallCount();
     const replayer = await createInterceptor({
       mode: "strict_replay",
-      transport,
+      transport: session.transport,
       tracePath,
     });
 
     const replayed = await replayer.call(LOOKUP_COMPANY, ARGS);
-
     assert(
       stableEqual(replayed, recorded),
       "replayed output must equal recorded output",
     );
     assert(
-      server.liveCallCount() === liveCallsBeforeReplay,
-      `live tool was invoked during replay (count ${server.liveCallCount()} vs ${liveCallsBeforeReplay})`,
+      session.liveCallCount() === liveCallsBeforeReplay,
+      `live MCP was invoked during replay (count ${session.liveCallCount()} vs ${liveCallsBeforeReplay})`,
     );
-    assert(!server.isAvailable(), "fake server must remain stopped after replay");
+
+    // --- Reordered keys must also match (structural equality) ---
+    const replayerKeys = await createInterceptor({
+      mode: "strict_replay",
+      transport: session.transport,
+      tracePath,
+    });
+    const replayedReordered = await replayerKeys.call(
+      LOOKUP_COMPANY,
+      ARGS_REORDERED,
+    );
+    assert(
+      stableEqual(replayedReordered, recorded),
+      "reordered-key replay must equal recorded output",
+    );
+    assert(
+      session.liveCallCount() === liveCallsBeforeReplay,
+      "live MCP was invoked during reordered-key replay",
+    );
+
+    // --- Genuine mismatch ---
+    const mismatcher = await createInterceptor({
+      mode: "strict_replay",
+      transport: session.transport,
+      tracePath,
+    });
+    let mismatched = false;
+    try {
+      await mismatcher.call(LOOKUP_COMPANY, ARGS_MISMATCH);
+    } catch (err) {
+      mismatched = err instanceof ReplayMismatchError;
+    }
+    assert(mismatched, "different arguments must raise ReplayMismatchError");
+    assert(
+      session.liveCallCount() === liveCallsBeforeReplay,
+      "live MCP was invoked during mismatch attempt",
+    );
 
     console.log("VERIFY PASSED");
     console.log(
@@ -105,15 +144,18 @@ async function main(): Promise<void> {
         {
           recorded,
           replayed,
+          replayedReordered,
           liveCallsDuringRecord: liveCallsAfterRecord,
-          liveCallsDuringReplay: server.liveCallCount() - liveCallsBeforeReplay,
+          liveCallsDuringReplay: session.liveCallCount() - liveCallsBeforeReplay,
           traceEntries: entries.length,
+          mismatchRaised: true,
         },
         null,
         2,
       ),
     );
   } finally {
+    await session.close().catch(() => undefined);
     await rm(workDir, { recursive: true, force: true });
   }
 }
