@@ -10,5 +10,11 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["src/**/*", "adapters/**/*", "fixtures/**/*", "tests/**/*"]
+  "include": [
+    "src/**/*",
+    "adapters/**/*",
+    "fixtures/**/*",
+    "tests/**/*",
+    "experiments/**/*"
+  ]
 }
