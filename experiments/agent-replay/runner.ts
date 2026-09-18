@@ -16,6 +16,8 @@ import type {
 } from "./types.ts";
 
 const DEFAULT_MAX_TURNS = 8;
+/** Cap tool payloads returned to the model; full responses remain in the trace. */
+const MODEL_TOOL_RESULT_CHARS = 2_500;
 
 export interface RunAgentOptions {
   version: AgentVersion;
@@ -23,6 +25,14 @@ export interface RunAgentOptions {
   model: ChatModel;
   interceptor: Interceptor;
   maxTurns?: number;
+}
+
+function truncateForModel(value: unknown): string {
+  const raw = JSON.stringify(value);
+  if (raw.length <= MODEL_TOOL_RESULT_CHARS) {
+    return raw;
+  }
+  return `${raw.slice(0, MODEL_TOOL_RESULT_CHARS)}…[truncated for model context; full result is in the replay trace]`;
 }
 
 export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult> {
@@ -85,7 +95,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult
       messages.push({
         role: "tool",
         tool_call_id: call.id,
-        content: JSON.stringify(response),
+        content: truncateForModel(response),
       });
     }
   }

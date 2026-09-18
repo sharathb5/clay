@@ -1,8 +1,9 @@
 /**
- * OpenAI Chat Completions provider (single provider for this experiment).
- * Uses fetch — no SDK dependency. API key is read from OPENAI_API_KEY only.
+ * OpenRouter Chat Completions provider (single provider for this experiment).
+ * OpenAI-compatible HTTP API via fetch. Key from OPENROUTER_API_KEY (.env or env).
  */
 
+import { loadRepoEnv } from "./load-env.ts";
 import type {
   ChatMessage,
   ChatModel,
@@ -11,37 +12,43 @@ import type {
   ModelTurn,
 } from "./types.ts";
 
-const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
-const DEFAULT_MODEL = "gpt-4o-mini";
+const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
+const DEFAULT_MODEL = "openai/gpt-4o-mini";
+/** Keep completions small so low OpenRouter balances can still run the experiment. */
+const DEFAULT_MAX_TOKENS = 512;
 
-export function requireOpenAiApiKey(): string {
-  const key = process.env.OPENAI_API_KEY;
+export function requireOpenRouterApiKey(): string {
+  loadRepoEnv();
+  const key = process.env.OPENROUTER_API_KEY;
   if (!key || key.trim().length === 0) {
     throw new Error(
-      "OPENAI_API_KEY is not set. Provider blocker: export OPENAI_API_KEY before the live agent experiment.",
+      "OPENROUTER_API_KEY is not set. Paste it into the repo-root .env file (OPENROUTER_API_KEY=...) before the live agent experiment.",
     );
   }
   return key;
 }
 
-export function createOpenAiChatModel(options?: {
+export function createOpenRouterChatModel(options?: {
   apiKey?: string;
   model?: string;
 }): ChatModel {
-  const apiKey = options?.apiKey ?? requireOpenAiApiKey();
-  const model = options?.model ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+  const apiKey = options?.apiKey ?? requireOpenRouterApiKey();
+  loadRepoEnv();
+  const model =
+    options?.model ?? process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
 
   return {
     model,
     async complete(input): Promise<ModelTurn> {
       const body = {
         model,
-        messages: input.messages.map(toOpenAiMessage),
-        tools: input.tools.map(toOpenAiTool),
+        messages: input.messages.map(toChatMessage),
+        tools: input.tools.map(toChatTool),
         tool_choice: "auto" as const,
+        max_tokens: Number(process.env.OPENROUTER_MAX_TOKENS) || DEFAULT_MAX_TOKENS,
       };
 
-      const response = await fetch(OPENAI_CHAT_URL, {
+      const response = await fetch(OPENROUTER_CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -53,7 +60,7 @@ export function createOpenAiChatModel(options?: {
       if (!response.ok) {
         const detail = await response.text();
         throw new Error(
-          `OpenAI chat completion failed (${response.status}): ${detail.slice(0, 500)}`,
+          `OpenRouter chat completion failed (${response.status}): ${detail.slice(0, 500)}`,
         );
       }
 
@@ -72,7 +79,7 @@ export function createOpenAiChatModel(options?: {
 
       const message = payload.choices?.[0]?.message;
       if (!message) {
-        throw new Error("OpenAI response missing choices[0].message");
+        throw new Error("OpenRouter response missing choices[0].message");
       }
 
       const toolCalls: ChatToolCall[] = (message.tool_calls ?? []).map((call) => ({
@@ -89,7 +96,7 @@ export function createOpenAiChatModel(options?: {
   };
 }
 
-function toOpenAiTool(tool: ChatToolDefinition): unknown {
+function toChatTool(tool: ChatToolDefinition): unknown {
   return {
     type: "function",
     function: {
@@ -100,7 +107,7 @@ function toOpenAiTool(tool: ChatToolDefinition): unknown {
   };
 }
 
-function toOpenAiMessage(message: ChatMessage): unknown {
+function toChatMessage(message: ChatMessage): unknown {
   if (message.role === "tool") {
     return {
       role: "tool",

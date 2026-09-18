@@ -19,7 +19,7 @@ import {
   ReplayMismatchError,
 } from "../../src/interceptor.ts";
 import { readTrace } from "../../src/trace.ts";
-import { createOpenAiChatModel, requireOpenAiApiKey } from "./provider-openai.ts";
+import { createOpenRouterChatModel, requireOpenRouterApiKey } from "./provider-openrouter.ts";
 import { runAgent } from "./runner.ts";
 import type { AgentRunResult } from "./types.ts";
 
@@ -93,8 +93,8 @@ function formatRun(
 
 async function main(): Promise<void> {
   // Fail fast on provider before any Clay live work beyond setup intent.
-  requireOpenAiApiKey();
-  const model = createOpenAiChatModel();
+  requireOpenRouterApiKey();
+  const model = createOpenRouterChatModel();
 
   await mkdir(artifactsDir, { recursive: true });
   const credBackup = join(artifactsDir, "credentials.backup.json");
@@ -194,6 +194,9 @@ async function main(): Promise<void> {
     const failClosed = createFailClosedClayTransport();
     const liveCallsAtReplayStart = liveSession.liveCallCount();
 
+    // Brief pause so OpenRouter in-flight budget can settle between runs.
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+
     // 4. V1 REPLAY
     const v1Replayer = await createInterceptor({
       mode: "strict_replay",
@@ -209,6 +212,8 @@ async function main(): Promise<void> {
     liveCallsDuringV1Replay =
       liveSession.liveCallCount() - liveCallsAtReplayStart;
     assert(liveCallsDuringV1Replay === 0, "live Clay invoked during V1 replay");
+
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
 
     // 5. V2 REPLAY
     const liveCallsBeforeV2 = liveSession.liveCallCount();
@@ -306,7 +311,7 @@ async function main(): Promise<void> {
     resultsPath,
     `${JSON.stringify(
       {
-        provider: "openai",
+        provider: "openrouter",
         model: model.model,
         outcome,
         creditsBefore: redactCredits(creditsBefore),

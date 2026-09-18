@@ -54,7 +54,7 @@ export interface ModelTurn {
   toolCalls: ChatToolCall[];
 }
 
-/** Minimal LLM boundary for this experiment (OpenAI only). */
+/** Minimal LLM boundary for this experiment (OpenRouter only). */
 export interface ChatModel {
   readonly model: string;
   complete(input: {
