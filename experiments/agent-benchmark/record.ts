@@ -182,9 +182,11 @@ async function recordOneCase(
 async function main(): Promise<void> {
   await mkdir(artifactsRoot, { recursive: true });
 
+  // Interactive auth allowed: recording is an operator session; stale tokens
+  // must be able to complete PKCE re-consent (same as clay:list-tools).
   const session = await createClayTransport({
-    interactiveAuth: false,
-    openBrowser: false,
+    interactiveAuth: true,
+    openBrowser: true,
   });
 
   let creditsBefore: unknown = null;
