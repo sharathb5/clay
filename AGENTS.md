@@ -213,6 +213,10 @@ Proven with a real OpenRouter-backed agent against Clay:
 
 Do not treat this experiment as an eval platform. Do not add hybrid/fork replay solely to make divergent tool strategies succeed.
 
+### Labeled frozen-trace benchmark — recording subphase (in progress)
+
+See ADR-024. Deterministic Clay recorder under `experiments/agent-benchmark/` freezes the same two-call protocol for six companies. Raw traces stay gitignored; human gold and V1/V2 scoring are **not** part of this subphase.
+
 ## How coding agents should work
 
 1. Re-read this file and `DECISIONS.md` before implementing.

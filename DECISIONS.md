@@ -316,6 +316,50 @@ Broader redaction of arbitrary tool *payload* secrets remains open (see Open que
 
 ---
 
+## ADR-024 — Labeled frozen-trace benchmark: recording decisions
+
+**Status:** Accepted (2026-09-19)
+
+**Decision:** Begin a small human-labeled correctness benchmark against frozen Clay evidence. This ADR settles the **recording subphase** only (deterministic freeze + seal + evidence cards). Gold labels, V1/V2 scoring, and result docs come later and must not precede human review of the six frozen cases.
+
+**Cases (coverage intent, not gold):**
+
+| Domain | Slot intent |
+|--------|-------------|
+| `circleci.com` | clear developer-infrastructure fit |
+| `datadoghq.com` | clear developer-infrastructure fit |
+| `hubspot.com` | clear non-fit (CRM / marketing) |
+| `figma.com` | clear non-fit (design) |
+| `notion.so` | borderline (productivity / collab) |
+| `linear.app` | borderline (eng workflow adjacency) |
+
+**Recording protocol (identical for every case):**
+
+1. Through interceptor `record` mode only: `find-and-enrich-company({ companyIdentifier: <domain> })`
+2. Then `get-task-context({ taskId })` using the returned `taskId`
+3. No `companyDataPoints`, enrichments, subroutines, contacts tools, or mutations
+4. No live agent / LLM participates in creating benchmark traces
+
+**Notion:** Re-record into the benchmark artifact tree with the same deterministic recorder. The prior experiment trace under `.experiment-artifacts/agent-replay/` remains untouched for previous experiments.
+
+**Artifacts:**
+
+- Raw frozen traces + mechanically derived evidence cards: gitignored under `.experiment-artifacts/agent-benchmark/`
+- After seal, compute SHA-256 of each frozen JSONL immediately
+- A sanitized recording manifest (domains, hashes, protocol pins, redacted credits metadata — **no raw Clay payloads, no gold labels**) may be committed later; not until operators review the six freezes
+- Evidence cards contain only fields needed for human labeling and must not include V1/V2 output or automatic gold labels
+
+**Why:** Correctness vs consistency requires human gold applied to fixed evidence. Deterministic recording removes agent-driven tool drift from the freeze. Separating recording from labeling/scoring prevents gold contamination.
+
+**Out of scope for this ADR:** eval platform/UI, LLM judges, hybrid/fork replay, changing V1/V2 policies, committing raw Clay traces, automatic gold assignment, V1/V2 benchmark runs.
+
+**Alternatives considered:**
+- Reuse the existing Notion agent-recorded freeze for protocol uniformity — rejected; all six cases must share the deterministic recorder
+- V1 live-agent record for freezes — rejected; non-deterministic tool depth
+- Commit raw traces — rejected (ADR-018 / open payload-redaction question)
+
+---
+
 # Open questions
 
 Do not implement answers until a phase needs them. When settled, promote to an ADR.
