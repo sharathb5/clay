@@ -9,6 +9,7 @@
     "clay:list-tools": "tsx scripts/clay-list-tools.ts",
     "experiment:agent-replay": "tsx experiments/agent-replay/experiment.ts",
     "experiment:agent-variance": "tsx experiments/agent-replay/variance-experiment.ts",
+    "experiment:agent-benchmark:record": "tsx experiments/agent-benchmark/record.ts",
     "test": "tsx --test tests/*.test.ts"
   },
   "devDependencies": {
