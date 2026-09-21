@@ -4,7 +4,7 @@
  */
 
 import type { Interceptor } from "../../src/interceptor.ts";
-import { systemPromptFor, USER_TASK } from "./policies.ts";
+import { COMPANY_DOMAIN, systemPromptFor, USER_TASK } from "./policies.ts";
 import { parseClassificationResult } from "./schema.ts";
 import { AGENT_TOOLS, FINISH_TOOL_NAME, isClayToolName } from "./tools.ts";
 import type {
@@ -26,6 +26,11 @@ export interface RunAgentOptions {
   model: ChatModel;
   interceptor: Interceptor;
   maxTurns?: number;
+  /**
+   * Company domain under evaluation. Substitutes into the existing V1/V2 prompts
+   * without changing ICP wording or decision-policy bullets.
+   */
+  companyDomain?: string;
 }
 
 function truncateForModel(value: unknown): string {
@@ -36,11 +41,30 @@ function truncateForModel(value: unknown): string {
   return `${raw.slice(0, MODEL_TOOL_RESULT_CHARS)}…[truncated for model context; full result is in the replay trace]`;
 }
 
+function promptsForDomain(version: AgentVersion, domain: string): {
+  system: string;
+  user: string;
+} {
+  // Domain-only substitution; ICP and decision-policy text stay intact.
+  if (domain === COMPANY_DOMAIN) {
+    return {
+      system: systemPromptFor(version),
+      user: USER_TASK,
+    };
+  }
+  return {
+    system: systemPromptFor(version).split(COMPANY_DOMAIN).join(domain),
+    user: USER_TASK.split(COMPANY_DOMAIN).join(domain),
+  };
+}
+
 export async function runAgent(options: RunAgentOptions): Promise<AgentRunResult> {
   const maxTurns = options.maxTurns ?? DEFAULT_MAX_TURNS;
+  const domain = options.companyDomain ?? COMPANY_DOMAIN;
+  const prompts = promptsForDomain(options.version, domain);
   const messages: ChatMessage[] = [
-    { role: "system", content: systemPromptFor(options.version) },
-    { role: "user", content: USER_TASK },
+    { role: "system", content: prompts.system },
+    { role: "user", content: prompts.user },
   ];
   const toolSequence: ObservedToolCall[] = [];
   let usage: TokenUsage | undefined;

@@ -10,6 +10,7 @@
     "experiment:agent-replay": "tsx experiments/agent-replay/experiment.ts",
     "experiment:agent-variance": "tsx experiments/agent-replay/variance-experiment.ts",
     "experiment:agent-benchmark:record": "tsx experiments/agent-benchmark/record.ts",
+    "experiment:agent-benchmark": "tsx experiments/agent-benchmark/run.ts",
     "test": "tsx --test tests/*.test.ts"
   },
   "devDependencies": {
