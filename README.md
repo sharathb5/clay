@@ -21,6 +21,12 @@ To answer:
 - Model nondeterminism observed (V1 live vs V1 replay classifications can differ)
 - Real traces/outputs stay in gitignored `.experiment-artifacts/`
 
+**Labeled frozen-trace benchmark v1 complete** (`npm run experiment:agent-benchmark`):
+
+- Six sealed Clay freezes + human gold labels (committed manifest)
+- V1 and V2 scored via strict replay only (fail-closed; zero live Clay)
+- See [Labeled frozen-trace benchmark v1](#labeled-frozen-trace-benchmark-v1) below
+
 **Frozen-trace agent variance complete** (`npm run experiment:agent-variance`):
 
 - 10× V1 and 10× V2 strict replay against the same Notion Clay trace (zero live Clay)
@@ -41,6 +47,38 @@ To answer:
 **Phase 1** established the interceptor/trace core.
 
 See `AGENTS.md` for invariants and workflow, `DECISIONS.md` for architectural choices.
+
+## Labeled frozen-trace benchmark v1
+
+Human-labeled correctness check of V1 and V2 against six frozen Clay evidence cards.
+
+**Purpose.** With the tool environment held fixed, measure agreement with sealed human gold labels, plus within-policy variance and between-policy differences.
+
+**Cases (frozen traces; gold labeled before any agent scoring):**
+
+| Domain | Human gold |
+|--------|------------|
+| `circleci.com` | `strong_fit` |
+| `datadoghq.com` | `strong_fit` |
+| `hubspot.com` | `weak_fit` |
+| `canva.com` | `weak_fit` |
+| `notion.so` | `weak_fit` |
+| `linear.app` | `medium_fit` |
+
+**Protocol.** Same two-call freeze per case (`find-and-enrich-company` → `get-task-context`). Scoring is replay-only against fail-closed Clay transport. OpenRouter `openai/gpt-4o-mini`; temperature/seed unset; `max_tokens` 512; `tool_choice` auto. **5** runs × **2** policies × **6** cases = **60** runs. Live Clay calls: **0**. Replay mismatches: **0**. All 60 runs completed.
+
+**Headline results** (agreement with sealed human labels):
+
+| Policy | Correct / 30 | Accuracy | Modal-label accuracy (6 cases) |
+|--------|--------------|----------|--------------------------------|
+| V1     | 23           | 76.7%    | 5/6 (83.3%)                    |
+| V2     | 25           | 83.3%    | 5/6 (83.3%)                    |
+
+V2 had higher observed agreement with the six human-labeled frozen cases in this benchmark. The gap is concentrated on Notion (V1 consistently `medium_fit` vs gold `weak_fit`; V2 matched gold) and Linear (V1 matched gold `medium_fit`; V2 consistently `weak_fit`). HubSpot showed V1 within-policy variance (`weak_fit`/`medium_fit`); V2 was stable on gold.
+
+**Limitations.** Six cases and five runs per policy; no statistical significance. Correctness means agreement with this sealed gold only—not a general claim that either policy is better. Model nondeterminism remains (temperature/seed unset). Raw traces and run artifacts stay local under `.experiment-artifacts/agent-benchmark/`.
+
+**Approximate cost.** V1 ≈ 116,424 tokens (~$0.014). V2 ≈ 117,924 tokens (~$0.015). Combined ≈ $0.029.
 
 ## Frozen-trace agent variance
 
@@ -88,6 +126,9 @@ npm run experiment:agent-replay
 
 # Frozen-trace variance (OPENROUTER_API_KEY; reuses existing frozen trace; no Clay)
 npm run experiment:agent-variance
+
+# Labeled benchmark v1 (OPENROUTER_API_KEY; sealed freezes + gold; no Clay)
+npm run experiment:agent-benchmark -- --runs 5
 
 # Focused unit tests
 npm test
