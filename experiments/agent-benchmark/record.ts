@@ -26,6 +26,30 @@ import { sha256File } from "./seal.ts";
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 const artifactsRoot = join(repoRoot, ".experiment-artifacts", "agent-benchmark");
 
+/** Optional `--only <id>[,<id>…]` to record a subset without touching other freezes. */
+function casesToRecord(): BenchmarkCase[] {
+  const onlyIdx = process.argv.indexOf("--only");
+  if (onlyIdx < 0) {
+    return [...BENCHMARK_CASES];
+  }
+  const raw = process.argv[onlyIdx + 1];
+  if (!raw) {
+    throw new Error("Usage: record.ts [--only <caseId>[,<caseId>…]]");
+  }
+  const ids = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const selected: BenchmarkCase[] = [];
+  for (const id of ids) {
+    const found = BENCHMARK_CASES.find((c) => c.id === id);
+    if (!found) {
+      throw new Error(
+        `Unknown case id "${id}". Active cases: ${BENCHMARK_CASES.map((c) => c.id).join(", ")}`,
+      );
+    }
+    selected.push(found);
+  }
+  return selected;
+}
+
 export interface CaseRecordingResult {
   caseId: string;
   domain: string;
@@ -181,6 +205,10 @@ async function recordOneCase(
 
 async function main(): Promise<void> {
   await mkdir(artifactsRoot, { recursive: true });
+  const selectedCases = casesToRecord();
+  console.error(
+    `Recording ${selectedCases.length} case(s): ${selectedCases.map((c) => c.id).join(", ")}`,
+  );
 
   // Interactive auth allowed: recording is an operator session; stale tokens
   // must be able to complete PKCE re-consent (same as clay:list-tools).
@@ -202,7 +230,7 @@ async function main(): Promise<void> {
       JSON.stringify(redactCredits(creditsBefore)),
     );
 
-    for (const c of BENCHMARK_CASES) {
+    for (const c of selectedCases) {
       console.error(`\nRecording ${c.id} (${c.domain})…`);
       const before = session.liveCallCount();
       const result = await recordOneCase(c, (toolName, args) =>
@@ -259,7 +287,12 @@ async function main(): Promise<void> {
     goldLabelsAssigned: 0,
   };
 
-  const reportPath = join(artifactsRoot, "recording-session.json");
+  // Subset runs write a separate report so full-session metadata stays intact.
+  const reportName =
+    selectedCases.length === BENCHMARK_CASES.length
+      ? "recording-session.json"
+      : `recording-session-${selectedCases.map((c) => c.id).join("-")}.json`;
+  const reportPath = join(artifactsRoot, reportName);
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   // Operator-facing summary (stdout).

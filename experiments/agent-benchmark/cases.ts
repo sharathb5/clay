@@ -26,6 +26,10 @@ export interface BenchmarkCase {
   slotRationale: string;
 }
 
+/**
+ * Active benchmark v1 cases (after Figma exclusion / Canva replacement).
+ * Gold labels are not assigned here.
+ */
 export const BENCHMARK_CASES: readonly BenchmarkCase[] = [
   {
     id: "circleci",
@@ -46,10 +50,10 @@ export const BENCHMARK_CASES: readonly BenchmarkCase[] = [
     slotRationale: "CRM / marketing — ICP exclusion",
   },
   {
-    id: "figma",
-    domain: "figma.com",
+    id: "canva",
+    domain: "canva.com",
     slot: "clear_non_fit",
-    slotRationale: "Design tooling — ICP exclusion",
+    slotRationale: "Design / creative tooling — ICP exclusion (replaces figma)",
   },
   {
     id: "notion",
@@ -62,5 +66,22 @@ export const BENCHMARK_CASES: readonly BenchmarkCase[] = [
     domain: "linear.app",
     slot: "borderline",
     slotRationale: "Eng issue/workflow tool — buyer eng, product not infra",
+  },
+] as const;
+
+/**
+ * Recorded but excluded from benchmark v1.
+ * Artifacts remain under cases/<id>/ for diagnostics; do not delete or overwrite.
+ */
+export const EXCLUDED_FROM_BENCHMARK_V1 = [
+  {
+    id: "figma",
+    domain: "figma.com",
+    slot: "clear_non_fit" as const,
+    excludedAt: "2026-09-20",
+    reason:
+      "Frozen evidence has identity/evidence-quality ambiguity (requested figma.com; returned domain/website figma.bot; description only Config 2026 blurb). Insufficiently clean for the intended clear-non-fit control. Exclusion is about benchmark evidence quality, not Figma's real-world ICP classification.",
+    frozenTraceSha256:
+      "b5d6eb5f464853ba30e5bf661fe55328a4d7495d07984b7a0fd9473c9853fd78",
   },
 ] as const;

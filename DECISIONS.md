@@ -322,16 +322,18 @@ Broader redaction of arbitrary tool *payload* secrets remains open (see Open que
 
 **Decision:** Begin a small human-labeled correctness benchmark against frozen Clay evidence. This ADR settles the **recording subphase** only (deterministic freeze + seal + evidence cards). Gold labels, V1/V2 scoring, and result docs come later and must not precede human review of the six frozen cases.
 
-**Cases (coverage intent, not gold):**
+**Active benchmark v1 roster (coverage intent, not gold):**
 
 | Domain | Slot intent |
 |--------|-------------|
 | `circleci.com` | clear developer-infrastructure fit |
 | `datadoghq.com` | clear developer-infrastructure fit |
 | `hubspot.com` | clear non-fit (CRM / marketing) |
-| `figma.com` | clear non-fit (design) |
+| `canva.com` | clear non-fit (design / creative tooling) |
 | `notion.so` | borderline (productivity / collab) |
 | `linear.app` | borderline (eng workflow adjacency) |
+
+**Roster amendment (2026-09-20):** The original accepted roster used `figma.com` as the second clear-non-fit control. After deterministic recording, the frozen Figma evidence had identity/evidence-quality ambiguity (requested `figma.com`; returned domain/website `figma.bot`; description only a Config 2026 blurb) and was judged insufficiently clean for that control. Figma was **excluded** from benchmark v1 for evidence-quality reasons (not because of Figma’s real-world ICP classification). Artifacts remain under `cases/figma/` and are listed in `EXCLUDED_FROM_BENCHMARK_V1`. `canva.com` was recorded as the replacement clear-non-fit case. Subset re-recording uses `record.ts --only <id>`.
 
 **Recording protocol (identical for every case):**
 
