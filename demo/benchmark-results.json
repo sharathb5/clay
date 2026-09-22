@@ -1,0 +1,157 @@
+{
+  "benchmark": {
+    "name": "Frozen Clay Agent Benchmark v1",
+    "companies": 6,
+    "runs_per_policy_per_company": 5,
+    "total_agent_runs": 60,
+    "live_clay_calls": 0,
+    "replay_mismatches": 0,
+    "gold": "human-labeled before agent scoring"
+  },
+  "method": {
+    "environment": "frozen Clay MCP traces",
+    "gold": "human-labeled before agent scoring",
+    "provider": "openrouter",
+    "model": "openai/gpt-4o-mini",
+    "temperature": "unset",
+    "seed": "unset",
+    "max_tokens": 512,
+    "tool_choice": "auto"
+  },
+  "aggregate": {
+    "v1": {
+      "correct": 23,
+      "total": 30,
+      "accuracy": "76.7%",
+      "modal_label_accuracy": "5/6",
+      "tokens": 116424,
+      "approx_cost_usd": 0.014
+    },
+    "v2": {
+      "correct": 25,
+      "total": 30,
+      "accuracy": "83.3%",
+      "modal_label_accuracy": "5/6",
+      "tokens": 117924,
+      "approx_cost_usd": 0.015
+    },
+    "combined_approx_cost_usd": 0.029
+  },
+  "interpretation": [
+    "Frozen replay removes environment drift.",
+    "Repeated runs reveal model variance under identical evidence.",
+    "Policy changes can improve some cases and regress others.",
+    "V2 had higher observed agreement with human gold in this six-case benchmark — not a claim that V2 is universally better."
+  ],
+  "cases": {
+    "circleci": {
+      "domain": "circleci.com",
+      "human_gold": "strong_fit",
+      "v1_distribution": "strong_fit 5/5",
+      "v1_accuracy": "5/5",
+      "v2_distribution": "strong_fit 5/5",
+      "v2_accuracy": "5/5",
+      "observation": "Both policies matched gold on every run."
+    },
+    "datadog": {
+      "domain": "datadoghq.com",
+      "human_gold": "strong_fit",
+      "v1_distribution": "strong_fit 5/5",
+      "v1_accuracy": "5/5",
+      "v2_distribution": "strong_fit 5/5",
+      "v2_accuracy": "5/5",
+      "observation": "Both policies matched gold on every run."
+    },
+    "hubspot": {
+      "domain": "hubspot.com",
+      "human_gold": "weak_fit",
+      "v1_distribution": "weak_fit 3/5, medium_fit 2/5",
+      "v1_accuracy": "3/5",
+      "v2_distribution": "weak_fit 5/5",
+      "v2_accuracy": "5/5",
+      "observation": "V1 showed run-to-run model variance under identical evidence; V2 did not in this sample."
+    },
+    "canva": {
+      "domain": "canva.com",
+      "human_gold": "weak_fit",
+      "v1_distribution": "weak_fit 5/5",
+      "v1_accuracy": "5/5",
+      "v2_distribution": "weak_fit 5/5",
+      "v2_accuracy": "5/5",
+      "observation": "Both policies matched gold on every run."
+    },
+    "notion": {
+      "domain": "notion.so",
+      "human_gold": "weak_fit",
+      "v1_distribution": "medium_fit 5/5",
+      "v1_accuracy": "0/5",
+      "v2_distribution": "weak_fit 5/5",
+      "v2_accuracy": "5/5",
+      "observation": "V2 corrected V1's consistently over-generous classification."
+    },
+    "linear": {
+      "domain": "linear.app",
+      "human_gold": "medium_fit",
+      "v1_distribution": "medium_fit 5/5",
+      "v1_accuracy": "5/5",
+      "v2_distribution": "weak_fit 5/5",
+      "v2_accuracy": "0/5",
+      "observation": "The stricter V2 policy introduced a regression on the borderline case."
+    }
+  },
+  "highlights": {
+    "notion": {
+      "gold": "weak_fit",
+      "v1": "medium_fit 5/5",
+      "v2": "weak_fit 5/5",
+      "observation": "V2 corrected V1's consistently over-generous classification."
+    },
+    "linear": {
+      "gold": "medium_fit",
+      "v1": "medium_fit 5/5",
+      "v2": "weak_fit 5/5",
+      "observation": "The stricter V2 policy introduced a regression on the borderline case."
+    },
+    "hubspot": {
+      "gold": "weak_fit",
+      "v1": "weak_fit 3/5, medium_fit 2/5",
+      "v2": "weak_fit 5/5",
+      "observation": "V1 showed run-to-run model variance under identical evidence; V2 did not in this sample."
+    }
+  },
+  "demo_sample": {
+    "excluded_from_benchmark_statistics": true,
+    "purpose": "Fresh Loom demo replay only; sealed 60-run benchmark numbers are unchanged.",
+    "company": "notion.so",
+    "policy": "v2",
+    "mode": "strict_replay",
+    "classification": "weak_fit",
+    "rationale": "Notion primarily functions as a collaboration and productivity tool rather than a B2B product specifically designed for engineering/platform teams to build or operate developer infrastructure. It lacks clear features aligned with developer infrastructure like CI/CD, observability, or API management.",
+    "evidence_used": [
+      "Industry categorized as Software Development",
+      "Company provides a productivity solution"
+    ],
+    "missing_evidence": [
+      "No signals indicating usage by engineering/platform teams specifically for developer infrastructure",
+      "Lack of features related to CI/CD, observability, APIs, or cloud infrastructure"
+    ],
+    "tool_sequence": "find-and-enrich-company → get-task-context",
+    "live_clay_calls": 0,
+    "replay_mismatches": 0,
+    "mismatch_message": null,
+    "trace_sha256_before": "a7ff8a0eae7eb777ecfa432b512070b1c0c60d5dbdbaf48b696677d3f2c4d8c9",
+    "trace_sha256_after": "a7ff8a0eae7eb777ecfa432b512070b1c0c60d5dbdbaf48b696677d3f2c4d8c9",
+    "provider": "openrouter",
+    "model": "openai/gpt-4o-mini",
+    "temperature": "unset",
+    "seed": "unset",
+    "max_tokens": 512,
+    "tool_choice": "auto",
+    "usage": {
+      "prompt_tokens": 3681,
+      "completion_tokens": 179,
+      "total_tokens": 3860,
+      "cost": 0.00057315
+    }
+  }
+}
