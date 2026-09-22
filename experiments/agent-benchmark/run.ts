@@ -230,7 +230,6 @@ async function runOne(options: {
   try {
     const result: AgentRunResult = await runAgent({
       version,
-      mode: "strict_replay",
       model,
       interceptor,
       companyDomain: c.domain,

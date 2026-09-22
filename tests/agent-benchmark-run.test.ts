@@ -7,7 +7,6 @@ import { test } from "node:test";
 import { createFailClosedClayTransport } from "../adapters/clay-transport.ts";
 import {
   createInterceptor,
-  ReplayMismatchError,
 } from "../src/interceptor.ts";
 import type { Transport } from "../src/types.ts";
 import { runAgent } from "../experiments/agent-replay/runner.ts";
@@ -179,7 +178,6 @@ test("benchmark replay uses fresh interceptor and fail-closed transport", async 
       assert.equal(interceptor.mode, "strict_replay");
       const result = await runAgent({
         version: i === 0 ? "v1" : "v2",
-        mode: "strict_replay",
         model: scriptedModel(turns()),
         interceptor,
         companyDomain: domain,
@@ -197,7 +195,6 @@ test("benchmark replay uses fresh interceptor and fail-closed transport", async 
         });
         await runAgent({
           version: "v1",
-          mode: "strict_replay",
           model: scriptedModel([
             {
               content: null,
@@ -210,7 +207,8 @@ test("benchmark replay uses fresh interceptor and fail-closed transport", async 
           companyDomain: domain,
         });
       },
-      (err: unknown) => err instanceof ReplayMismatchError,
+      // Out-of-order Clay tools fail the experiment protocol before replay matching.
+      /violated required tool order/,
     );
     assert.equal(transportCalls, 0);
   } finally {

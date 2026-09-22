@@ -70,6 +70,48 @@ export async function appendTraceEntry(
   });
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Runtime validation at the read boundary; arguments/response may be null. */
+export function parseTraceEntry(
+  value: unknown,
+  tracePath: string,
+  lineNumber: number,
+): TraceEntry {
+  if (!isPlainObject(value)) {
+    throw new Error(
+      `Invalid trace entry at ${tracePath}:${lineNumber}: expected plain object`,
+    );
+  }
+  if (!("toolName" in value)) {
+    throw new Error(
+      `Invalid trace entry at ${tracePath}:${lineNumber}: missing toolName`,
+    );
+  }
+  if (typeof value.toolName !== "string" || value.toolName.length === 0) {
+    throw new Error(
+      `Invalid trace entry at ${tracePath}:${lineNumber}: toolName must be a non-empty string`,
+    );
+  }
+  if (!("arguments" in value)) {
+    throw new Error(
+      `Invalid trace entry at ${tracePath}:${lineNumber}: missing arguments property`,
+    );
+  }
+  if (!("response" in value)) {
+    throw new Error(
+      `Invalid trace entry at ${tracePath}:${lineNumber}: missing response property`,
+    );
+  }
+  return {
+    toolName: value.toolName,
+    arguments: value.arguments,
+    response: value.response,
+  };
+}
+
 export async function readTrace(tracePath: string): Promise<TraceEntry[]> {
   let raw: string;
   try {
@@ -84,11 +126,14 @@ export async function readTrace(tracePath: string): Promise<TraceEntry[]> {
 
   const lines = raw.split("\n").filter((line) => line.trim().length > 0);
   return lines.map((line, index) => {
+    const lineNumber = index + 1;
+    let parsed: unknown;
     try {
-      return JSON.parse(line) as TraceEntry;
+      parsed = JSON.parse(line);
     } catch {
-      throw new Error(`Invalid JSONL at ${tracePath}:${index + 1}`);
+      throw new Error(`Invalid JSONL at ${tracePath}:${lineNumber}`);
     }
+    return parseTraceEntry(parsed, tracePath, lineNumber);
   });
 }
 

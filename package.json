@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "verify": "bash scripts/run-verify.sh verify.ts",
+    "verify:all": "npm run typecheck && npm test && npm run verify",
     "verify:clay": "bash scripts/run-verify.sh verify-clay.ts",
     "clay:list-tools": "tsx scripts/clay-list-tools.ts",
     "experiment:agent-replay": "tsx experiments/agent-replay/experiment.ts",

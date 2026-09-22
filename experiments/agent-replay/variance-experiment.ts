@@ -296,7 +296,6 @@ async function runOne(
     // runAgent always starts a new messages[] — no conversation leak across runs.
     const result: AgentRunResult = await runAgent({
       version,
-      mode: "strict_replay",
       model,
       interceptor,
     });

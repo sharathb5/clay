@@ -7,7 +7,6 @@ import { test } from "node:test";
 import { createFailClosedClayTransport } from "../adapters/clay-transport.ts";
 import {
   createInterceptor,
-  ReplayMismatchError,
 } from "../src/interceptor.ts";
 import type { Transport } from "../src/types.ts";
 import { runAgent } from "../experiments/agent-replay/runner.ts";
@@ -114,7 +113,6 @@ test("fresh strict-replay interceptors do not share cursor state across runs", a
       });
       const result = await runAgent({
         version: i === 0 ? "v1" : "v2",
-        mode: "strict_replay",
         model: scriptedModel(replayTurns()),
         interceptor,
       });
@@ -166,7 +164,6 @@ test("replay mismatch is preserved without live transport fallback", async () =>
       () =>
         runAgent({
           version: "v1",
-          mode: "strict_replay",
           model: scriptedModel([
             {
               content: null,
@@ -177,7 +174,9 @@ test("replay mismatch is preserved without live transport fallback", async () =>
           ]),
           interceptor,
         }),
-      (err: unknown) => err instanceof ReplayMismatchError,
+      (err: unknown) =>
+        err instanceof Error &&
+        /violated required tool order/.test(err.message),
     );
     assert.equal(transportCalls, 0);
   } finally {

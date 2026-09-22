@@ -42,7 +42,10 @@ Optional:
 ## Verification
 
 ```bash
-# Local MCP stdio (no Clay credentials)
+# Typecheck + unit tests + local MCP (no Clay credentials)
+npm run verify:all
+
+# Local MCP stdio only
 npm run verify
 
 # Same, while capturing output without hiding failures
@@ -53,6 +56,9 @@ npm run verify:clay
 
 # Focused unit tests
 npm test
+
+# Typecheck only
+npm run typecheck
 ```
 
 Do not capture verifier output with a bare `| tee` pipeline: without `pipefail`, a failing verifier can still yield exit status 0. Prefer `npm run verify -- --tee <file>`.

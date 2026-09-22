@@ -5,7 +5,7 @@
  * V1 strict replay → V2 strict replay → credits after (restored auth).
  */
 
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CLAY_CREDENTIALS_PATH } from "../../adapters/clay-auth-store.ts";
@@ -97,8 +97,8 @@ async function main(): Promise<void> {
   const model = createOpenRouterChatModel();
 
   await mkdir(artifactsDir, { recursive: true });
-  const credBackup = join(artifactsDir, "credentials.backup.json");
-  await copyFile(CLAY_CREDENTIALS_PATH, credBackup);
+  // Keep credentials in memory only — no durable duplicate under artifacts.
+  const credentialsBackup = await readFile(CLAY_CREDENTIALS_PATH);
 
   let creditsBefore: unknown = null;
   let creditsAfter: unknown = null;
@@ -131,7 +131,6 @@ async function main(): Promise<void> {
     });
     v1Live = await runAgent({
       version: "v1",
-      mode: "record",
       model,
       interceptor: recorder,
     });
@@ -205,7 +204,6 @@ async function main(): Promise<void> {
     });
     v1Replay = await runAgent({
       version: "v1",
-      mode: "strict_replay",
       model,
       interceptor: v1Replayer,
     });
@@ -225,7 +223,6 @@ async function main(): Promise<void> {
     try {
       v2Replay = await runAgent({
         version: "v2",
-        mode: "strict_replay",
         model,
         interceptor: v2Replayer,
       });
@@ -243,7 +240,9 @@ async function main(): Promise<void> {
   } finally {
     await liveSession.close().catch(() => undefined);
     // Restore credentials so credits-after and future local use work.
-    await copyFile(credBackup, CLAY_CREDENTIALS_PATH).catch(() => undefined);
+    await writeFile(CLAY_CREDENTIALS_PATH, credentialsBackup, {
+      mode: 0o600,
+    }).catch(() => undefined);
   }
 
   // 6. Credits after (restored auth; outside agent trace)

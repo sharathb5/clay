@@ -35,17 +35,28 @@ export async function createInterceptor(
 
   if (mode === "record") {
     await clearTrace(tracePath);
+    // Serialize record-mode calls so trace order matches invocation order,
+    // even when transports resolve out of order. Queue advances after failures.
+    let recordQueue: Promise<unknown> = Promise.resolve();
+
     return {
       mode,
       async call(toolName: string, args: unknown): Promise<unknown> {
-        const response = await transport.call(toolName, args);
-        const entry: TraceEntry = {
-          toolName,
-          arguments: args,
-          response,
-        };
-        await appendTraceEntry(tracePath, entry);
-        return response;
+        const scheduled = recordQueue.then(async () => {
+          const response = await transport.call(toolName, args);
+          const entry: TraceEntry = {
+            toolName,
+            arguments: args,
+            response,
+          };
+          await appendTraceEntry(tracePath, entry);
+          return response;
+        });
+        recordQueue = scheduled.then(
+          () => undefined,
+          () => undefined,
+        );
+        return scheduled;
       },
     };
   }
@@ -77,7 +88,8 @@ export async function createInterceptor(
       }
 
       cursor += 1;
-      return expected.response;
+      // Clone so callers cannot mutate in-memory replay evidence.
+      return structuredClone(expected.response);
     },
   };
 }
