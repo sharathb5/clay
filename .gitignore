@@ -1,5 +1,6 @@
 node_modules/
 dist/
+coverage/
 *.log
 .DS_Store
 .tmp-traces/
@@ -7,3 +8,6 @@ dist/
 .experiment-artifacts/
 .env
 .env.*
+demo/
+*.trace.jsonl
+evidence-card.json
